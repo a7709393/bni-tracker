@@ -102,7 +102,8 @@
   .st-pending{background:rgba(245,179,1,.13)}
   .st-empty{background:transparent}
   .sicon{font-size:17px;font-weight:900}
-  .st-done .sicon{color:var(--green);filter:drop-shadow(0 0 5px rgba(40,209,124,.6))}
+  .st-done .sicon{color:#35f59a;font-weight:900;
+    filter:drop-shadow(0 0 5px rgba(53,245,154,.95)) drop-shadow(0 0 13px rgba(53,245,154,.55))}
   .st-pending .sicon{color:var(--yellow);filter:drop-shadow(0 0 5px rgba(245,179,1,.6))}
   .st-empty .sicon{color:var(--gray)}
   .note{display:block;font-size:11px;color:#ffdf9a;margin-top:2px;min-height:13px;outline:none}
@@ -356,7 +357,7 @@ function save(){
 
 function lightClass(v){ if(v==null) return 'L-gray'; if(v>=70) return 'L-green'; if(v>=50) return 'L-yellow'; return 'L-red'; }
 function lightLabel(v){ if(v==null) return '未評燈'; const n=v>=70?'綠燈':v>=50?'黃燈':'紅燈'; return n+' '+v; }
-const ICON={0:'○',1:'✔',2:'⧗'};
+const ICON={0:'○',1:'✔︎',2:'⧗'};
 const STCLASS={0:'st-empty',1:'st-done',2:'st-pending'};
 
 function render(){
