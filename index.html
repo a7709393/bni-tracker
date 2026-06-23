@@ -79,6 +79,34 @@
   tfoot td{background:var(--panel2);font-weight:700;text-align:center;padding:6px;font-size:12px}
   .hint{color:var(--mut);font-size:11.5px;padding:2px 22px 14px;line-height:1.6}
   .savetag{font-size:11px;color:var(--green);margin-left:4px;opacity:0;transition:opacity .3s}
+  .mpick{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px;max-width:150px}
+  .tablescroll{overflow-x:auto}
+  /* 手機單人卡片 */
+  .ccard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+  .chead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .cprog{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:13px;color:var(--mut)}
+  .cbar{flex:1;height:9px;background:#222a36;border-radius:6px;overflow:hidden}
+  .cbarfill{height:100%;background:var(--green);transition:width .3s}
+  .crow{display:flex;gap:12px;align-items:stretch;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px}
+  .cstatus{flex:0 0 58px;display:flex;align-items:center;justify-content:center;border-radius:10px;cursor:pointer;min-height:58px;border:1px solid var(--line)}
+  .cstatus .sicon{font-size:26px}
+  .cinfo{flex:1;min-width:0}
+  .idetail2{color:var(--mut);font-size:12px;margin:4px 0 8px 28px;line-height:1.4}
+  .cnote{width:100%;box-sizing:border-box;background:#0e131c;border:1px solid var(--line);border-radius:8px;color:#ffdf9a;padding:10px;font-size:16px}
+  .cnote:focus{outline:none;border-color:var(--accent)}
+  @media (max-width:768px){
+    header{padding:12px 14px}
+    header::after{display:none}
+    h1{font-size:16px;line-height:1.3}
+    .sub{font-size:10px;letter-spacing:1px}
+    .bar{padding:10px 12px;gap:6px}
+    .tab{padding:8px 12px;font-size:13px}
+    button.act{padding:8px 10px;font-size:12px}
+    .legend{padding:6px 12px;font-size:11px;gap:9px}
+    .hint{display:none}
+    .wrap{padding:8px 12px 90px}
+    #mode{font-size:11px;padding:4px 8px}
+  }
   @media print{
     .bar,.legend,.hint{display:none}
     td.cell:hover{outline:none}
@@ -98,6 +126,8 @@
     <div class="tab active" data-v="old" onclick="switchVer('old')">舊版檢核（15 項）</div>
     <div class="tab" data-v="new" onclick="switchVer('new')">新版檢核（17 項）</div>
   </div>
+  <select id="mpick" class="mpick" onchange="pickMember(this.value)" style="display:none"></select>
+  <button class="act" id="modebtn" onclick="toggleMode()">📱 單人檢視</button>
   <div class="spacer"></div>
   <span id="mode" class="m-local">● 本機模式</span>
   <span id="savetag" class="savetag">✔ 已儲存</span>
@@ -121,7 +151,7 @@
 <div class="hint">操作:點格子循環切換 <b>未開始 → 完成 → 進行中</b>;「＋備註」可直接打字填日期(如 6/26、7/30前)。<b>雲端共用模式</b>下所有導師看到並更新同一份即時資料。燈號分數已對照線上紅綠燈檢視表帶入。</div>
 
 <div class="wrap">
-  <table id="grid"></table>
+  <div id="view"></div>
 </div>
 
 <script>
@@ -208,6 +238,9 @@ function dfltNew(){
 const KEY='bni_new_member_tracker_v2';
 let DATA = load();
 let CUR='old';
+let MODE = (window.innerWidth<768)?'cards':'table';
+let PICK = 0;
+let MODE_LOCKED = false;
 
 function defaults(){ return {old:dfltOld(), new:dfltNew()}; }
 function load(){
@@ -286,11 +319,17 @@ const STCLASS={0:'st-empty',1:'st-done',2:'st-pending'};
 
 function render(){
   const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
+  if(PICK>=members.length) PICK=0;
+  if(MODE==='cards') renderCards(); else renderTable();
+  syncControls();
+}
+
+function renderTable(){
+  const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
   const items   = CUR==='old'?OLD_ITEMS:NEW_ITEMS;
   const grid    = DATA[CUR];
-  const t=document.getElementById('grid');
 
-  let head='<thead><tr><th style="min-width:230px">檢核項目</th>';
+  let head='<thead><tr><th style="min-width:200px">檢核項目</th>';
   members.forEach((m,mi)=>{
     head+=`<th><div class="mcard">
       <div class="mname">${m.name}</div>
@@ -325,9 +364,60 @@ function render(){
   members.forEach((m,mi)=>{ foot+=`<td id="foot-${mi}"></td>`; });
   foot+='</tr></tfoot>';
 
-  t.innerHTML=head+body+foot;
+  document.getElementById('view').innerHTML='<div class="tablescroll"><table class="bigtable">'+head+body+foot+'</table></div>';
   updateTotals();
 }
+
+function renderCards(){
+  const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
+  const items   = CUR==='old'?OLD_ITEMS:NEW_ITEMS;
+  const grid    = DATA[CUR];
+  const m=members[PICK];
+  let done=0; grid.forEach(row=>{ if(row[PICK][0]===1) done++; });
+  const pct=Math.round(done/items.length*100);
+  let h=`<div class="ccard">
+    <div class="chead">
+      <div><div class="mname" style="font-size:20px">${m.name}</div>
+        <div class="mind">${m.ind}${m.npc?'｜'+m.npc:''}　導師：<b style="color:#7fc4ff">${m.mentor}</b></div></div>
+      <div class="light ${lightClass(m.light)}">${lightLabel(m.light)}</div>
+    </div>
+    <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${pct}%"></div></div><span>${done}/${items.length}（${pct}%）</span></div>
+    ${m.miss?`<div class="miss">缺：${m.miss}</div>`:''}
+    ${m.note?`<div class="miss" style="color:#9af0bd">▸ ${m.note}</div>`:''}
+  </div>`;
+  items.forEach((it,ii)=>{
+    const [s,n]=grid[ii][PICK];
+    h+=`<div class="crow">
+      <div class="cstatus ${STCLASS[s]}" onclick="cycle(${ii},${PICK})"><span class="sicon">${ICON[s]}</span></div>
+      <div class="cinfo">
+        <div><span class="inum">${ii+1}</span><span class="ititle">${it[0]}</span></div>
+        <div class="idetail2">${it[1]}　·　負責：${it[2]}</div>
+        <input class="cnote" placeholder="備註 / 日期（如 6/26、7/30前）" value="${(n||'').replace(/"/g,'&quot;')}"
+          onfocus="editing=true" onblur="editing=false" oninput="setNote(${ii},${PICK},this.value)">
+      </div>
+    </div>`;
+  });
+  document.getElementById('view').innerHTML=h;
+}
+
+function syncControls(){
+  const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
+  const sel=document.getElementById('mpick');
+  if(sel){
+    sel.innerHTML=members.map((mm,i)=>`<option value="${i}">${mm.name}</option>`).join('');
+    sel.value=PICK;
+    sel.style.display = MODE==='cards'?'':'none';
+  }
+  const b=document.getElementById('modebtn');
+  if(b) b.textContent = MODE==='cards'?'📊 整表檢視':'📱 單人檢視';
+}
+function pickMember(v){ PICK=+v; render(); }
+function toggleMode(){ MODE=(MODE==='cards'?'table':'cards'); MODE_LOCKED=true; render(); }
+window.addEventListener('resize', ()=>{
+  if(MODE_LOCKED) return;
+  const want = window.innerWidth<768?'cards':'table';
+  if(want!==MODE){ MODE=want; render(); }
+});
 
 function cycle(ii,mi){ const c=DATA[CUR][ii][mi]; c[0]=(c[0]+1)%3; save(); render(); }
 function setNote(ii,mi,txt){
