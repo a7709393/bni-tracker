@@ -436,6 +436,7 @@ async function exportImage(){
   document.body.appendChild(wrap);
   try{
     const canvas=await html2canvas(wrap,{backgroundColor:'#000',scale:2,logging:false,windowWidth:wrap.scrollWidth+60});
+    if(location.search.indexOf('preview=1')>=0){ const v=document.getElementById('view'); canvas.style.cssText='max-width:100%;border:1px solid #333;border-radius:10px'; v.innerHTML=''; v.appendChild(canvas); return; }
     const fname='BNI檢核追蹤_'+(CUR==='old'?'舊版':'新版')+'_'+fmtT(Date.now()).replace(/[\/: ]/g,'-')+'.jpg';
     const done=(blob)=>{
       if(!blob){ alert('產生圖片失敗，請再試一次。'); return; }
