@@ -168,8 +168,8 @@ function dfltOld(){
 const NEW_MEMBERS = [
   {name:'楊有成', npc:'', ind:'商業影像規劃', mentor:'林永恩', light:null, join:'預計6月底', miss:'', note:'下週五完成繳費'},
   {name:'林士安', npc:'', ind:'企業命理', mentor:'黃奕樺', light:null, join:'115.06.04', miss:'', note:'（最新表未顯示，待確認是否仍在）'},
-  {name:'許柏祥', npc:'', ind:'系統櫃', mentor:'陳廷澐', light:30, join:'115.06.04', miss:'', note:'預計一個月出村'},
-  {name:'余政學', npc:'', ind:'居家設計', mentor:'張晉銘', light:55, join:'115.06.04', miss:'', note:'預計一個月出村'},
+  {name:'許柏祥', npc:'', ind:'系統櫃', mentor:'陳廷澐', light:30, join:'115.06.04', miss:'引薦 5次、來賓 2位、培訓 6分、成交 80萬', note:'預計一個月出村'},
+  {name:'余政學', npc:'', ind:'居家設計', mentor:'張晉銘', light:55, join:'115.06.04', miss:'來賓 1位、培訓 6分、成交 79萬', note:'預計一個月出村'},
 ];
 const NEW_ITEMS = [
   ['Line 群組加入及使用說明','商務交流群 & 放入名片','副主席'],
@@ -205,7 +205,7 @@ function dfltNew(){
 }
 
 /* ====== 狀態管理 ====== */
-const KEY='bni_new_member_tracker_v1';
+const KEY='bni_new_member_tracker_v2';
 let DATA = load();
 let CUR='old';
 
@@ -217,8 +217,14 @@ function load(){
 
 /* ====== Firebase 即時同步 ====== */
 const FIREBASE_CONFIG = {
-  /* 部署後貼上 Firebase 設定即啟用雲端共用;留空為本機模式。
-     可改用畫面右上「☁ 雲端同步設定」按鈕貼上。 */
+  apiKey: "AIzaSyA9zxiowhwSmWF0hFgemvJiyeofEDvQs1o",
+  authDomain: "bni-tracker-b3ef8.firebaseapp.com",
+  databaseURL: "https://bni-tracker-b3ef8-default-rtdb.firebaseio.com",
+  projectId: "bni-tracker-b3ef8",
+  storageBucket: "bni-tracker-b3ef8.firebasestorage.app",
+  messagingSenderId: "322793389801",
+  appId: "1:322793389801:web:080a432df275e88783fa78",
+  measurementId: "G-NLN6BRQYCQ"
 };
 let SHARED=false, dbRef=null, applyingRemote=false, editing=false, writeTimer=null;
 
@@ -233,7 +239,7 @@ function initSync(){
   if(!cfg || !window.firebase){ setMode('m-local','● 本機模式'); return; }
   try{
     firebase.initializeApp(cfg);
-    dbRef = firebase.database().ref('tracker_v1');
+    dbRef = firebase.database().ref('tracker_v2');
     SHARED=true; setMode('m-warn','☁ 連線中…');
     dbRef.on('value', snap=>{
       const v=snap.val();
