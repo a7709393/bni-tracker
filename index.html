@@ -427,7 +427,8 @@ function renderLog(){
 
 /* ====== 匯出整表 JPG ====== */
 async function exportImage(){
-  if(typeof html2canvas==='undefined'){ alert('圖片元件尚未載入完成，請稍候幾秒再試一次。'); return; }
+  document.body.style.outline='8px solid magenta';
+  if(typeof html2canvas==='undefined'){ document.body.style.outline='8px solid orange'; alert('圖片元件尚未載入完成，請稍候幾秒再試一次。'); return; }
   const isPv=location.search.indexOf('preview=1')>=0;
   if(isPv) document.title='X1-start';
   const box=document.createElement('div');
