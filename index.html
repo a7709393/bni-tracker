@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Saira:ital,wght@1,600;1,800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
     --bg:#000; --panel:#0d1117; --panel2:#0f141b; --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.16);
@@ -129,6 +130,22 @@
   .idetail2{color:var(--mut);font-size:12px;margin:4px 0 8px 28px;line-height:1.4}
   .cnote{width:100%;box-sizing:border-box;background:#070b10;border:1px solid var(--line);border-radius:9px;color:#ffdf9a;padding:11px;font-size:16px;transition:.15s}
   .cnote:focus{outline:none;border-color:var(--accent);box-shadow:0 0 12px rgba(225,6,0,.3)}
+  /* ===== 操作紀錄 Modal ===== */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.74);backdrop-filter:blur(3px);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px}
+  .modalbox{background:#0b0f16;border:1px solid var(--line2);border-radius:14px;width:100%;max-width:740px;max-height:84vh;display:flex;flex-direction:column;
+    box-shadow:0 20px 60px rgba(0,0,0,.7),0 0 0 1px rgba(225,6,0,.15)}
+  .modalhead{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .modalhead b{font-style:italic;font-size:16px;color:#fff}
+  .loghint{color:var(--mut);font-size:11px;flex:1;min-width:120px}
+  .loglist{overflow:auto;padding:6px 12px 12px}
+  .logrow{display:grid;grid-template-columns:160px 1fr;gap:10px;padding:9px 6px;border-bottom:1px solid var(--line);font-size:12.5px;line-height:1.5}
+  .logrow:hover{background:rgba(255,255,255,.02)}
+  .logt{font-family:var(--numfont);font-style:italic;color:#8fb7ff;white-space:nowrap}
+  .logwho{color:#ffce8a;font-weight:700;margin-right:6px}
+  .logver{display:inline-block;font-size:10px;padding:0 6px;border-radius:4px;background:#10263c;color:#8fc6ff;margin-right:6px}
+  .logact{font-weight:800;font-style:italic;margin-left:4px}
+  .logact.a-done{color:#35f59a} .logact.a-pending{color:var(--yellow)} .logact.a-empty{color:var(--mut)} .logact.a-note{color:#ffdf9a} .logact.a-sys{color:#ff8a8a}
+  .logempty{color:var(--mut);text-align:center;padding:34px 10px;font-size:13px;line-height:1.7}
   /* ===== Responsive ===== */
   @media (max-width:768px){
     header{padding:13px 14px 12px}
@@ -144,6 +161,8 @@
     .hint{display:none}
     .wrap{padding:12px 12px 90px}
     #mode{font-size:11px;padding:4px 10px 4px 22px}
+    .modal{padding:14px 8px}
+    .logrow{grid-template-columns:1fr;gap:2px}
   }
   @media print{
     .bar,.legend,.hint,.livepill{display:none}
@@ -174,12 +193,26 @@
   <div class="spacer"></div>
   <span id="mode" class="m-local">● 本機模式</span>
   <span id="savetag" class="savetag">✔ 已儲存</span>
-  <button class="act" onclick="setupSync()">☁ 雲端同步設定</button>
-  <button class="act" onclick="exportJSON()">⬇ 匯出</button>
-  <button class="act" onclick="document.getElementById('imp').click()">⬆ 匯入</button>
+  <button class="act" id="userbtn" onclick="setUser()">👤 操作者</button>
+  <button class="act" onclick="openLog()">📜 操作紀錄</button>
+  <button class="act" onclick="exportImage()">🖼 匯出整表圖片</button>
+  <button class="act" onclick="setupSync()">☁ 同步設定</button>
+  <button class="act" onclick="exportJSON()">⬇ 備份</button>
+  <button class="act" onclick="document.getElementById('imp').click()">⬆ 還原</button>
   <input id="imp" type="file" accept="application/json" style="display:none" onchange="importJSON(event)">
   <button class="act" onclick="window.print()">🖨 列印</button>
   <button class="act" onclick="resetAll()">↺ 重設</button>
+</div>
+
+<div id="logmodal" class="modal" style="display:none" onclick="if(event.target===this)closeLog()">
+  <div class="modalbox">
+    <div class="modalhead">
+      <b>📜 操作修改紀錄</b>
+      <span class="loghint">記錄狀態切換與備註修改（含時間 / 操作者），所有導師即時共用</span>
+      <button class="act" onclick="closeLog()">✕ 關閉</button>
+    </div>
+    <div id="loglist" class="loglist"></div>
+  </div>
 </div>
 
 <div class="legend">
@@ -302,7 +335,9 @@ const FIREBASE_CONFIG = {
   appId: "1:322793389801:web:080a432df275e88783fa78",
   measurementId: "G-NLN6BRQYCQ"
 };
-let SHARED=false, dbRef=null, applyingRemote=false, editing=false, writeTimer=null;
+let SHARED=false, dbRef=null, logRef=null, applyingRemote=false, editing=false, writeTimer=null;
+let LOG=[]; try{ LOG=JSON.parse(localStorage.getItem('bni_log'))||[]; }catch(e){ LOG=[]; }
+let logOpen=false, noteFocusVal=null;
 
 function getCfg(){
   if(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey) return FIREBASE_CONFIG;
@@ -316,6 +351,8 @@ function initSync(){
   try{
     firebase.initializeApp(cfg);
     dbRef = firebase.database().ref('tracker_v4');
+    logRef = firebase.database().ref('logs_v1');
+    logRef.limitToLast(500).on('value', s=>{ const v=s.val()||{}; LOG=Object.values(v).sort((a,b)=>b.t-a.t); if(logOpen) renderLog(); });
     SHARED=true; setMode('m-warn','☁ 連線中…');
     dbRef.on('value', snap=>{
       const v=snap.val();
@@ -355,6 +392,58 @@ function save(){
   const t=document.getElementById('savetag'); t.style.opacity=1; setTimeout(()=>t.style.opacity=0,900);
 }
 
+/* ====== 操作紀錄 ====== */
+function pad2(n){ return String(n).padStart(2,'0'); }
+function fmtT(t){ const d=new Date(t); return d.getFullYear()+'/'+pad2(d.getMonth()+1)+'/'+pad2(d.getDate())+' '+pad2(d.getHours())+':'+pad2(d.getMinutes())+':'+pad2(d.getSeconds()); }
+function getUser(){ return localStorage.getItem('bni_user')||'匿名'; }
+function setUser(){ const cur=getUser(); const v=prompt('輸入你的名字（會記錄在操作紀錄中，方便辨識是誰改的）：', cur==='匿名'?'':cur); if(v!=null){ localStorage.setItem('bni_user', v.trim()||'匿名'); syncUserBtn(); } }
+function syncUserBtn(){ const b=document.getElementById('userbtn'); if(b) b.textContent='👤 '+getUser(); }
+const ACTLABEL={0:'未開始',1:'完成',2:'進行中'};
+const ACTCLASS={'未開始':'a-empty','完成':'a-done','進行中':'a-pending'};
+function pushLog(e){
+  if(SHARED && logRef){ try{ logRef.push(e); }catch(x){} }
+  else { LOG.unshift(e); if(LOG.length>800) LOG.length=800; try{localStorage.setItem('bni_log',JSON.stringify(LOG));}catch(x){} if(logOpen) renderLog(); }
+}
+function addLog(ver,mi,ii,act){
+  const members=ver==='old'?OLD_MEMBERS:NEW_MEMBERS, items=ver==='old'?OLD_ITEMS:NEW_ITEMS;
+  if(!members[mi]||!items[ii]) return;
+  pushLog({t:Date.now(),who:getUser(),ver:(ver==='old'?'舊版':'新版'),member:members[mi].name,item:items[ii][0],act:act});
+}
+function addSysLog(act){ pushLog({t:Date.now(),who:getUser(),ver:'系統',member:'',item:'',act:act}); }
+function noteFocus(ii,mi){ editing=true; noteFocusVal=(DATA[CUR][ii][mi][1]||''); }
+function noteBlur(ii,mi){ editing=false; const v=(DATA[CUR][ii][mi][1]||''); if(v!==noteFocusVal){ addLog(CUR,mi,ii, v?('備註：'+v):'清除備註'); } }
+function openLog(){ logOpen=true; document.getElementById('logmodal').style.display='flex'; renderLog(); }
+function closeLog(){ logOpen=false; document.getElementById('logmodal').style.display='none'; }
+function renderLog(){
+  const el=document.getElementById('loglist'); if(!el) return;
+  if(!LOG.length){ el.innerHTML='<div class="logempty">尚無操作紀錄。<br>每次切換狀態（完成 / 進行中 / 未開始）或修改備註，都會自動記錄在這裡，並即時同步給所有導師。</div>'; return; }
+  el.innerHTML=LOG.map(e=>{
+    const isNote=/^備註/.test(e.act)||e.act==='清除備註';
+    const cls=e.ver==='系統'?'a-sys':(isNote?'a-note':(ACTCLASS[e.act]||''));
+    const mid=e.member?(e.member+'・'+e.item+' '):'';
+    return `<div class="logrow"><div class="logt">${fmtT(e.t)}</div><div><span class="logver">${e.ver}</span><span class="logwho">${e.who||'匿名'}</span>${mid}<span class="logact ${cls}">${(isNote||e.ver==='系統')?e.act:('→ '+e.act)}</span></div></div>`;
+  }).join('');
+}
+
+/* ====== 匯出整表 JPG ====== */
+async function exportImage(){
+  if(typeof html2canvas==='undefined'){ alert('圖片元件尚未載入完成，請稍候幾秒再試一次。'); return; }
+  const wrap=document.createElement('div');
+  wrap.style.cssText='position:fixed;left:-99999px;top:0;background:#000;padding:22px;font-family:"Noto Sans TC",sans-serif';
+  wrap.innerHTML='<div style="font:italic 900 22px/1.3 \'Noto Sans TC\',sans-serif;color:#fff;margin-bottom:4px">🏁 BNI 全鑫白金分會 — 新會員出村檢核追蹤表</div>'
+    +'<div style="color:#8b95a5;font-size:13px;margin-bottom:14px">'+(CUR==='old'?'舊版檢核（15 項）':'新版檢核（17 項）')+'　｜　匯出時間：'+fmtT(Date.now())+'</div>'
+    +tableHTML();
+  document.body.appendChild(wrap);
+  try{
+    const canvas=await html2canvas(wrap,{backgroundColor:'#000',scale:2,logging:false,windowWidth:wrap.scrollWidth+60});
+    const a=document.createElement('a');
+    a.href=canvas.toDataURL('image/jpeg',0.95);
+    a.download='BNI檢核追蹤_'+(CUR==='old'?'舊版':'新版')+'_'+fmtT(Date.now()).replace(/[\/: ]/g,'-')+'.jpg';
+    a.click();
+  }catch(e){ alert('匯出圖片失敗：'+(e&&e.message||e)); }
+  finally{ document.body.removeChild(wrap); }
+}
+
 function lightClass(v){ if(v==null) return 'L-gray'; if(v>=70) return 'L-green'; if(v>=50) return 'L-yellow'; return 'L-red'; }
 function lightLabel(v){ if(v==null) return '未評燈'; const n=v>=70?'綠燈':v>=50?'黃燈':'紅燈'; return n+' '+v; }
 const ICON={0:'○',1:'✔︎',2:'⧗'};
@@ -367,10 +456,11 @@ function render(){
   syncControls();
 }
 
-function renderTable(){
+function tableHTML(){
   const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
   const items   = CUR==='old'?OLD_ITEMS:NEW_ITEMS;
-  const grid    = DATA[CUR];
+  const grid    = DATA[CUR]; const total=items.length;
+  const stat=mi=>{ let d=0; grid.forEach(r=>{ if(r[mi][0]===1) d++; }); return d+'/'+total+' ・ '+Math.round(d/total*100)+'%'; };
 
   let head='<thead><tr><th style="min-width:200px">檢核項目</th>';
   members.forEach((m,mi)=>{
@@ -379,7 +469,7 @@ function renderTable(){
       <div class="mind">${m.ind}${m.npc?'｜'+m.npc:''}</div>
       <div class="mmentor">導師：<b>${m.mentor}</b></div>
       <div class="light ${lightClass(m.light)}">${lightLabel(m.light)}</div>
-      <div class="prog" id="prog-${mi}"></div>
+      <div class="prog" id="prog-${mi}">進度 ${stat(mi)}</div>
       ${m.miss?`<div class="miss">缺：${m.miss}</div>`:''}
       ${m.note?`<div class="miss" style="color:#9af0bd">▸ ${m.note}</div>`:''}
     </div></th>`;
@@ -394,9 +484,8 @@ function renderTable(){
       const [s,n]=grid[ii][mi];
       body+=`<td class="cell ${STCLASS[s]}" onclick="cycle(${ii},${mi})">
         <span class="sicon">${ICON[s]}</span>
-        <span class="note" contenteditable="true"
-          onclick="event.stopPropagation()"
-          onfocus="editing=true" onblur="editing=false"
+        <span class="note" contenteditable="true" onclick="event.stopPropagation()"
+          onfocus="noteFocus(${ii},${mi})" onblur="noteBlur(${ii},${mi})"
           oninput="setNote(${ii},${mi},this.innerText)">${n||''}</span></td>`;
     });
     body+='</tr>';
@@ -404,11 +493,12 @@ function renderTable(){
   body+='</tbody>';
 
   let foot='<tfoot><tr><td>完成度</td>';
-  members.forEach((m,mi)=>{ foot+=`<td id="foot-${mi}"></td>`; });
+  members.forEach((m,mi)=>{ foot+=`<td id="foot-${mi}">${stat(mi)}</td>`; });
   foot+='</tr></tfoot>';
-
-  document.getElementById('view').innerHTML='<div class="tablescroll"><table class="bigtable">'+head+body+foot+'</table></div>';
-  updateTotals();
+  return '<table class="bigtable">'+head+body+foot+'</table>';
+}
+function renderTable(){
+  document.getElementById('view').innerHTML='<div class="tablescroll">'+tableHTML()+'</div>';
 }
 
 function renderCards(){
@@ -436,7 +526,7 @@ function renderCards(){
         <div><span class="inum">${ii+1}</span><span class="ititle">${it[0]}</span></div>
         <div class="idetail2">${it[1]}　·　負責：${it[2]}</div>
         <input class="cnote" placeholder="備註 / 日期（如 6/26、7/30前）" value="${(n||'').replace(/"/g,'&quot;')}"
-          onfocus="editing=true" onblur="editing=false" oninput="setNote(${ii},${PICK},this.value)">
+          onfocus="noteFocus(${ii},${PICK})" onblur="noteBlur(${ii},${PICK})" oninput="setNote(${ii},${PICK},this.value)">
       </div>
     </div>`;
   });
@@ -462,7 +552,7 @@ window.addEventListener('resize', ()=>{
   if(want!==MODE){ MODE=want; render(); }
 });
 
-function cycle(ii,mi){ const c=DATA[CUR][ii][mi]; c[0]=(c[0]+1)%3; save(); render(); }
+function cycle(ii,mi){ const c=DATA[CUR][ii][mi]; c[0]=(c[0]+1)%3; addLog(CUR,mi,ii,ACTLABEL[c[0]]); save(); render(); }
 function setNote(ii,mi,txt){
   DATA[CUR][ii][mi][1]=txt.trim();
   if(txt.trim() && DATA[CUR][ii][mi][0]===0){ DATA[CUR][ii][mi][0]=2; }
@@ -491,14 +581,15 @@ function exportJSON(){
 function importJSON(e){
   const f=e.target.files[0]; if(!f) return;
   const r=new FileReader();
-  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.old&&d.new){DATA=d;save();render();alert('已匯入並更新進度');} else alert('檔案格式不符'); }catch(err){alert('讀取失敗');} };
+  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.old&&d.new){DATA=d;addSysLog('匯入備份檔覆蓋進度');save();render();alert('已匯入並更新進度');} else alert('檔案格式不符'); }catch(err){alert('讀取失敗');} };
   r.readAsText(f); e.target.value='';
 }
 function resetAll(){
-  if(confirm('確定要清除所有更新、回到預設帶入狀態嗎?(雲端共用模式會同步清除給所有人)')){ DATA=defaults(); save(); render(); }
+  if(confirm('確定要清除所有更新、回到預設帶入狀態嗎?(雲端共用模式會同步清除給所有人)')){ DATA=defaults(); addSysLog('重設全部進度為預設值'); save(); render(); }
 }
 
 render();
+syncUserBtn();
 initSync();
 </script>
 </body>
