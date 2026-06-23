@@ -90,6 +90,12 @@
   .L-red{background:var(--red-d);color:#ffb0b0;border:1px solid var(--red);box-shadow:0 0 10px rgba(239,68,68,.25)}
   .L-gray{background:#161b22;color:#9aa6b5;border:1px solid var(--gray)}
   .miss{font-size:10.5px;color:#ffce8a;margin-top:5px;line-height:1.35}
+  .mnoterow{font-size:10.5px;color:#9af0bd;margin-top:5px;line-height:1.4}
+  .mnote{outline:none;border:1px dashed rgba(154,240,189,.25);border-radius:4px;padding:0 4px;min-width:34px;display:inline-block;cursor:text}
+  .mnote:hover{border-color:rgba(154,240,189,.55)}
+  .mnote:focus{border-style:solid;border-color:var(--accent);background:#0a0e13;color:#caffe0}
+  .mnote:empty::before{content:"＋出村備註";color:#5a6675}
+  .mnote-c{margin-top:10px;color:#9af0bd}
   .prog{font-size:11px;color:#c3ccd8;margin-top:6px;font-weight:700}
   .itemcell{padding:9px;width:230px;max-width:260px}
   .inum{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;font-family:var(--numfont);font-style:italic;
@@ -311,16 +317,21 @@ function dfltNew(){
 }
 
 /* ====== 狀態管理 ====== */
-const KEY='bni_new_member_tracker_v4';
+const KEY='bni_new_member_tracker_v5';
 let DATA = load();
 let CUR='old';
 let MODE = (window.innerWidth<768)?'cards':'table';
 let PICK = 0;
 let MODE_LOCKED = false;
 
-function defaults(){ return {old:dfltOld(), new:dfltNew()}; }
+function defaults(){ return {old:dfltOld(), new:dfltNew(), oldNotes:OLD_MEMBERS.map(m=>m.note||''), newNotes:NEW_MEMBERS.map(m=>m.note||'')}; }
+function normalizeData(d){
+  if(!Array.isArray(d.oldNotes)) d.oldNotes=OLD_MEMBERS.map(m=>m.note||'');
+  if(!Array.isArray(d.newNotes)) d.newNotes=NEW_MEMBERS.map(m=>m.note||'');
+  return d;
+}
 function load(){
-  try{const r=JSON.parse(localStorage.getItem(KEY)); if(r&&r.old&&r.new) return r;}catch(e){}
+  try{const r=JSON.parse(localStorage.getItem(KEY)); if(r&&r.old&&r.new) return normalizeData(r);}catch(e){}
   return defaults();
 }
 
@@ -350,14 +361,14 @@ function initSync(){
   if(!cfg || !window.firebase){ setMode('m-local','● 本機模式'); return; }
   try{
     firebase.initializeApp(cfg);
-    dbRef = firebase.database().ref('tracker_v4');
+    dbRef = firebase.database().ref('tracker_v5');
     logRef = firebase.database().ref('logs_v1');
     logRef.limitToLast(500).on('value', s=>{ const v=s.val()||{}; LOG=Object.values(v).sort((a,b)=>b.t-a.t); if(logOpen) renderLog(); });
     SHARED=true; setMode('m-warn','☁ 連線中…');
     dbRef.on('value', snap=>{
       const v=snap.val();
       if(v && v.old && v.new){
-        applyingRemote=true; DATA=v;
+        applyingRemote=true; DATA=normalizeData(v);
         localStorage.setItem(KEY, JSON.stringify(DATA));
         if(!editing) render();
         applyingRemote=false;
@@ -412,6 +423,11 @@ function addLog(ver,mi,ii,act){
 function addSysLog(act){ pushLog({t:Date.now(),who:getUser(),ver:'系統',member:'',item:'',act:act}); }
 function noteFocus(ii,mi){ editing=true; noteFocusVal=(DATA[CUR][ii][mi][1]||''); }
 function noteBlur(ii,mi){ editing=false; const v=(DATA[CUR][ii][mi][1]||''); if(v!==noteFocusVal){ addLog(CUR,mi,ii, v?('備註：'+v):'清除備註'); } }
+function notesArr(){ return DATA[CUR==='old'?'oldNotes':'newNotes']; }
+let mnoteFocusVal=null;
+function mnoteFocus(mi){ editing=true; mnoteFocusVal=(notesArr()[mi]||''); }
+function mnoteBlur(mi){ editing=false; const v=(notesArr()[mi]||''); if(v!==mnoteFocusVal){ const members=CUR==='old'?OLD_MEMBERS:NEW_MEMBERS; pushLog({t:Date.now(),who:getUser(),ver:(CUR==='old'?'舊版':'新版'),member:members[mi].name,item:'會員備註',act:v?('備註：'+v):'清除備註'}); } }
+function setMemberNote(mi,val){ notesArr()[mi]=val.trim(); save(); }
 function openLog(){ logOpen=true; document.getElementById('logmodal').style.display='flex'; renderLog(); }
 function closeLog(){ logOpen=false; document.getElementById('logmodal').style.display='none'; }
 function renderLog(){
@@ -481,7 +497,7 @@ function tableHTML(){
       <div class="light ${lightClass(m.light)}">${lightLabel(m.light)}</div>
       <div class="prog" id="prog-${mi}">進度 ${stat(mi)}</div>
       ${m.miss?`<div class="miss">缺：${m.miss}</div>`:''}
-      ${m.note?`<div class="miss" style="color:#9af0bd">▸ ${m.note}</div>`:''}
+      <div class="mnoterow">▸ <span class="mnote" contenteditable="true" onfocus="mnoteFocus(${mi})" onblur="mnoteBlur(${mi})" oninput="setMemberNote(${mi},this.innerText)">${notesArr()[mi]||''}</span></div>
     </div></th>`;
   });
   head+='</tr></thead>';
@@ -526,7 +542,7 @@ function renderCards(){
     </div>
     <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${pct}%"></div></div><span>${done}/${items.length}（${pct}%）</span></div>
     ${m.miss?`<div class="miss">缺：${m.miss}</div>`:''}
-    ${m.note?`<div class="miss" style="color:#9af0bd">▸ ${m.note}</div>`:''}
+    <input class="cnote mnote-c" placeholder="＋出村備註（可手動編輯）" value="${(notesArr()[PICK]||'').replace(/"/g,'&quot;')}" onfocus="mnoteFocus(${PICK})" onblur="mnoteBlur(${PICK})" oninput="setMemberNote(${PICK},this.value)">
   </div>`;
   items.forEach((it,ii)=>{
     const [s,n]=grid[ii][PICK];
@@ -591,7 +607,7 @@ function exportJSON(){
 function importJSON(e){
   const f=e.target.files[0]; if(!f) return;
   const r=new FileReader();
-  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.old&&d.new){DATA=d;addSysLog('匯入備份檔覆蓋進度');save();render();alert('已匯入並更新進度');} else alert('檔案格式不符'); }catch(err){alert('讀取失敗');} };
+  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.old&&d.new){DATA=normalizeData(d);addSysLog('匯入備份檔覆蓋進度');save();render();alert('已匯入並更新進度');} else alert('檔案格式不符'); }catch(err){alert('讀取失敗');} };
   r.readAsText(f); e.target.value='';
 }
 function resetAll(){
