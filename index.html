@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BNI 全鑫白金分會｜新會員檢核追蹤表</title>
+<!-- Firebase 即時資料庫 (compat 版,全域 firebase) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121823; --panel2:#1a2230; --line:#27313f;
+    --txt:#e7edf5; --mut:#8a97a8; --accent:#e10600;
+    --green:#22c55e; --green-d:#0f3d22;
+    --yellow:#f5b301; --yellow-d:#4a3a05;
+    --red:#ef4444; --red-d:#4a1212;
+    --gray:#3a4452;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;font-size:14px}
+  header{padding:18px 22px;background:linear-gradient(90deg,#15110f,#0a0e14);
+    border-bottom:3px solid var(--accent);position:relative;overflow:hidden}
+  header::after{content:"";position:absolute;top:0;right:0;height:100%;width:160px;
+    background:repeating-linear-gradient(45deg,#000 0 12px,#1c1c1c 12px 24px);opacity:.25}
+  h1{margin:0;font-size:20px;letter-spacing:1px}
+  .sub{color:var(--mut);font-size:12px;margin-top:4px;letter-spacing:2px}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 22px;
+    background:var(--panel);border-bottom:1px solid var(--line)}
+  .tabs{display:flex;gap:6px}
+  .tab{padding:9px 18px;border-radius:8px 8px 0 0;background:var(--panel2);color:var(--mut);
+    cursor:pointer;border:1px solid var(--line);border-bottom:none;font-weight:700;user-select:none}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .spacer{flex:1}
+  button.act{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+    padding:8px 12px;border-radius:8px;cursor:pointer;font-size:13px}
+  button.act:hover{border-color:var(--accent)}
+  #mode{font-size:12px;padding:5px 10px;border-radius:20px;border:1px solid var(--line);white-space:nowrap}
+  .m-local{background:#222a36;color:#9aa6b5}
+  .m-ok{background:var(--green-d);color:#9af0bd;border-color:var(--green)}
+  .m-warn{background:var(--yellow-d);color:#ffdf85;border-color:var(--yellow)}
+  .legend{display:flex;gap:14px;align-items:center;color:var(--mut);font-size:12px;padding:8px 22px;flex-wrap:wrap}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .wrap{padding:8px 22px 60px;overflow:auto}
+  table{border-collapse:collapse;width:100%;min-width:760px}
+  th,td{border:1px solid var(--line);padding:0}
+  thead th{background:var(--panel2);position:sticky;top:0;z-index:3;padding:8px 6px;font-size:12px}
+  .mcard{padding:8px 8px;min-width:120px}
+  .mname{font-size:15px;font-weight:800}
+  .mind{color:var(--mut);font-size:11px;margin-top:2px}
+  .mmentor{font-size:11px;margin-top:3px}
+  .mmentor b{color:#7fc4ff}
+  .light{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:800;margin-top:5px}
+  .L-green{background:var(--green-d);color:#9af0bd;border:1px solid var(--green)}
+  .L-yellow{background:var(--yellow-d);color:#ffdf85;border:1px solid var(--yellow)}
+  .L-red{background:var(--red-d);color:#ffb0b0;border:1px solid var(--red)}
+  .L-gray{background:#222a36;color:#9aa6b5;border:1px solid var(--gray)}
+  .miss{font-size:10.5px;color:#ffce8a;margin-top:5px;line-height:1.35}
+  .prog{font-size:11px;color:var(--mut);margin-top:5px}
+  .itemcell{padding:8px 8px;width:230px;max-width:260px}
+  .inum{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;
+    background:var(--panel2);border-radius:50%;font-size:11px;color:var(--mut);margin-right:6px}
+  .ititle{font-weight:700}
+  .idetail{color:var(--mut);font-size:11px;margin-top:2px;margin-left:28px}
+  .iwho{display:inline-block;margin-left:28px;margin-top:3px;font-size:10.5px;
+    background:#13283f;color:#8fc6ff;border-radius:4px;padding:1px 6px}
+  td.cell{cursor:pointer;text-align:center;vertical-align:middle;min-width:108px;height:54px;
+    transition:background .12s;user-select:none}
+  td.cell:hover{outline:2px solid var(--accent);outline-offset:-2px}
+  .st-done{background:rgba(34,197,94,.16)}
+  .st-pending{background:rgba(245,179,1,.15)}
+  .st-empty{background:transparent}
+  .sicon{font-size:16px;font-weight:800}
+  .st-done .sicon{color:var(--green)}
+  .st-pending .sicon{color:var(--yellow)}
+  .st-empty .sicon{color:var(--gray)}
+  .note{display:block;font-size:11px;color:#ffdf9a;margin-top:2px;min-height:13px;outline:none}
+  .note:empty::before{content:"＋備註";color:#3a4452;font-size:10px}
+  tfoot td{background:var(--panel2);font-weight:700;text-align:center;padding:6px;font-size:12px}
+  .hint{color:var(--mut);font-size:11.5px;padding:2px 22px 14px;line-height:1.6}
+  .savetag{font-size:11px;color:var(--green);margin-left:4px;opacity:0;transition:opacity .3s}
+  @media print{
+    .bar,.legend,.hint{display:none}
+    td.cell:hover{outline:none}
+    body{background:#fff;color:#000}
+    .wrap{padding:0}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏁 BNI 全鑫白金分會 — 新會員出村檢核追蹤表</h1>
+  <div class="sub">MENTOR PROGRESS TRACKER ｜ 導師協調員監督用 ｜ 即時共用更新</div>
+</header>
+
+<div class="bar">
+  <div class="tabs">
+    <div class="tab active" data-v="old" onclick="switchVer('old')">舊版檢核（15 項）</div>
+    <div class="tab" data-v="new" onclick="switchVer('new')">新版檢核（17 項）</div>
+  </div>
+  <div class="spacer"></div>
+  <span id="mode" class="m-local">● 本機模式</span>
+  <span id="savetag" class="savetag">✔ 已儲存</span>
+  <button class="act" onclick="setupSync()">☁ 雲端同步設定</button>
+  <button class="act" onclick="exportJSON()">⬇ 匯出</button>
+  <button class="act" onclick="document.getElementById('imp').click()">⬆ 匯入</button>
+  <input id="imp" type="file" accept="application/json" style="display:none" onchange="importJSON(event)">
+  <button class="act" onclick="window.print()">🖨 列印</button>
+  <button class="act" onclick="resetAll()">↺ 重設</button>
+</div>
+
+<div class="legend">
+  <span><span class="dot" style="background:var(--green)"></span>完成（點一下切換）</span>
+  <span><span class="dot" style="background:var(--yellow)"></span>進行中 / 排程中</span>
+  <span><span class="dot" style="background:var(--gray)"></span>未開始</span>
+  <span>｜ 燈號：</span>
+  <span><span class="dot" style="background:var(--green)"></span>綠燈 ≥70</span>
+  <span><span class="dot" style="background:var(--yellow)"></span>黃燈 50–69</span>
+  <span><span class="dot" style="background:var(--red)"></span>紅燈 &lt;50</span>
+</div>
+<div class="hint">操作:點格子循環切換 <b>未開始 → 完成 → 進行中</b>;「＋備註」可直接打字填日期(如 6/26、7/30前)。<b>雲端共用模式</b>下所有導師看到並更新同一份即時資料。燈號分數已對照線上紅綠燈檢視表帶入。</div>
+
+<div class="wrap">
+  <table id="grid"></table>
+</div>
+
+<script>
+/* ====== 資料:對照「新會員出村紀錄」表 + 線上紅綠燈檢視表(2026/06/23) ====== */
+const OLD_MEMBERS = [
+  {name:'郭景翔', npc:'鐵匠舖', ind:'居家水電', mentor:'林永恩', light:70, join:'114.08.07', miss:'引薦 1次、來賓 7位', note:''},
+  {name:'邱士傑', npc:'雜貨舖', ind:'玻璃工程', mentor:'徐子棋', light:70, join:'114.07.08', miss:'來賓 6位', note:'6/4 出村'},
+  {name:'陳雨震', npc:'飾品舖', ind:'防水工程', mentor:'林淙仁', light:65, join:'114.11.27', miss:'引薦 10次、來賓 6位', note:'預計七月出村'},
+  {name:'洪倧勝', npc:'', ind:'鋁門窗', mentor:'陳廷澐', light:70, join:'114.12.11', miss:'來賓 5位', note:'6/11 完成出村'},
+  {name:'夏振異', npc:'', ind:'拆除工程', mentor:'林淙仁', light:75, join:'115.02.26', miss:'來賓 4位', note:'6/11 完成出村'},
+  {name:'蔡家銘', npc:'', ind:'輕隔間', mentor:'李哲維', light:70, join:'115.02.26', miss:'來賓 2位', note:''},
+];
+const OLD_ITEMS = [
+  ['Line 群組加入及使用說明','商務交流群 & 放入名片','副主席'],
+  ['個人名牌 & 新會員護照','直示當天提供','秘財'],
+  ['會員121資料提供','填入預計初版完成日期','導師'],
+  ['新會員護照第一次導讀','填入導讀日期','導師'],
+  ['Zoom 及 Connect APP 安裝','熟悉工具','導師'],
+  ['確認了解綠燈計分方式','熟悉計分方式','導師'],
+  ['第二次導讀及與導師121','121技巧教學與演練','導師'],
+  ['與第二位導師121','121技巧教學與演練','導師'],
+  ['主席、副主席、成長「擇」121','加入6週內參加','擇二'],
+  ['MSP教育訓練(導師陪同)','加入6週內參加','導師'],
+  ['完成帶來一位來賓','加入6週內完成','導師'],
+  ['網頁版Connect 確認資料完整','加入6週內完成','導師'],
+  ['與導師協調員121','加入6週內完成','導師協調員'],
+  ['與董顧121','加入6週內完成','董顧'],
+  ['報名5分鐘專業簡報','結業後可主動報名','秘書財務'],
+];
+function dfltOld(){
+  const g=OLD_ITEMS.map(()=>OLD_MEMBERS.map(()=>[1,'']));
+  const set=(it,mb,s,n='')=>{g[it][mb]=[s,n];};
+  set(6,3,2,'6/26五');
+  set(7,3,2,'7/7前');
+  set(8,2,2,'一位');  set(8,4,2,'一位');
+  set(11,3,2,'7/15前');
+  set(12,3,2,'7/30前');
+  set(13,3,2,'時間待確認'); set(13,4,2,'7/30前');
+  for(let m=1;m<OLD_MEMBERS.length;m++) set(14,m,0);
+  return g;
+}
+
+const NEW_MEMBERS = [
+  {name:'楊有成', npc:'', ind:'商業影像規劃', mentor:'林永恩', light:null, join:'預計6月底', miss:'', note:''},
+  {name:'林士安', npc:'', ind:'企業命理', mentor:'黃奕樺', light:null, join:'115.06.04', miss:'', note:''},
+  {name:'許柏祥', npc:'', ind:'系統櫃', mentor:'陳廷澐', light:30, join:'115.06.04', miss:'', note:''},
+  {name:'余政學', npc:'', ind:'居家設計', mentor:'張晉銘', light:55, join:'115.06.04', miss:'', note:''},
+];
+const NEW_ITEMS = [
+  ['Line 群組加入及使用說明','商務交流群 & 放入名片','副主席'],
+  ['個人名牌 & 新會員護照','直示當天提供','秘財'],
+  ['會員121資料填寫','填入預計初版完成日期','導師'],
+  ['新會員護照第一次導讀','填入導讀日期','導師'],
+  ['Zoom 及 Connect APP 安裝','熟悉工具','導師'],
+  ['網頁版Connect 確認資料完整','熟悉工具','導師'],
+  ['確認了解綠燈計分方式','熟悉計分方式','導師'],
+  ['第二次導讀及與導師121','121技巧教學與演練','導師'],
+  ['與導師協調員121','121技巧教學與演練＋審核','導師協調員'],
+  ['與主席121','介紹分會發展＋南區','主席'],
+  ['與副主席121','解釋總政策與內規','副主席'],
+  ['與成長121','協助願景與規劃產業鏈','成長'],
+  ['MSP教育訓練(導師陪同)','加入6週內參加','導師'],
+  ['完成帶來一位來賓','加入6週內完成','導師'],
+  ['與支持董固121','加入6週內完成','支持董顧'],
+  ['與董顧121','加入6週內完成','董顧'],
+  ['綠燈結業後報名「專業短調」','擬定簡報定向','秘書財務'],
+];
+function dfltNew(){ return NEW_ITEMS.map(()=>NEW_MEMBERS.map(()=>[0,''])); }
+
+/* ====== 狀態管理 ====== */
+const KEY='bni_new_member_tracker_v1';
+let DATA = load();
+let CUR='old';
+
+function defaults(){ return {old:dfltOld(), new:dfltNew()}; }
+function load(){
+  try{const r=JSON.parse(localStorage.getItem(KEY)); if(r&&r.old&&r.new) return r;}catch(e){}
+  return defaults();
+}
+
+/* ====== Firebase 即時同步 ====== */
+const FIREBASE_CONFIG = {
+  /* 部署後貼上 Firebase 設定即啟用雲端共用;留空為本機模式。
+     可改用畫面右上「☁ 雲端同步設定」按鈕貼上。 */
+};
+let SHARED=false, dbRef=null, applyingRemote=false, editing=false, writeTimer=null;
+
+function getCfg(){
+  if(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey) return FIREBASE_CONFIG;
+  try{const c=JSON.parse(localStorage.getItem('bni_fb_cfg')); if(c&&c.apiKey) return c;}catch(e){}
+  return null;
+}
+function setMode(cls,txt){ const m=document.getElementById('mode'); m.className=cls; m.textContent=txt; }
+function initSync(){
+  const cfg=getCfg();
+  if(!cfg || !window.firebase){ setMode('m-local','● 本機模式'); return; }
+  try{
+    firebase.initializeApp(cfg);
+    dbRef = firebase.database().ref('tracker_v1');
+    SHARED=true; setMode('m-warn','☁ 連線中…');
+    dbRef.on('value', snap=>{
+      const v=snap.val();
+      if(v && v.old && v.new){
+        applyingRemote=true; DATA=v;
+        localStorage.setItem(KEY, JSON.stringify(DATA));
+        if(!editing) render();
+        applyingRemote=false;
+      }else{
+        dbRef.set(DATA);  // 雲端尚無資料 → 以目前資料初始化
+      }
+      setMode('m-ok','☁ 雲端共用 已連線');
+    }, err=>{ setMode('m-warn','☁ 連線失敗:'+(err&&err.code||'')); });
+  }catch(e){ setMode('m-local','● 本機模式（設定有誤）'); }
+}
+function pushRemote(){
+  if(SHARED && dbRef && !applyingRemote){
+    clearTimeout(writeTimer);
+    writeTimer=setTimeout(()=>{ try{dbRef.set(DATA);}catch(e){} }, 250);
+  }
+}
+function setupSync(){
+  const s=prompt('貼上 Firebase 設定(從 Firebase 主控台複製 firebaseConfig 整段內容,需含 databaseURL):');
+  if(!s) return;
+  try{
+    const m=s.match(/\{[\s\S]*\}/); if(!m) throw 0;
+    const cfg=(new Function('return ('+m[0]+')'))();
+    if(!cfg.apiKey || !cfg.databaseURL){ alert('設定需包含 apiKey 與 databaseURL\n(請先在 Firebase 建立 Realtime Database)'); return; }
+    localStorage.setItem('bni_fb_cfg', JSON.stringify(cfg));
+    alert('已儲存設定,重新整理後啟用雲端共用模式。'); location.reload();
+  }catch(e){ alert('解析失敗,請確認貼上的是 firebaseConfig 內容。'); }
+}
+
+function save(){
+  localStorage.setItem(KEY, JSON.stringify(DATA));
+  pushRemote();
+  const t=document.getElementById('savetag'); t.style.opacity=1; setTimeout(()=>t.style.opacity=0,900);
+}
+
+function lightClass(v){ if(v==null) return 'L-gray'; if(v>=70) return 'L-green'; if(v>=50) return 'L-yellow'; return 'L-red'; }
+function lightLabel(v){ if(v==null) return '未評燈'; const n=v>=70?'綠燈':v>=50?'黃燈':'紅燈'; return n+' '+v; }
+const ICON={0:'○',1:'✔',2:'⧗'};
+const STCLASS={0:'st-empty',1:'st-done',2:'st-pending'};
+
+function render(){
+  const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
+  const items   = CUR==='old'?OLD_ITEMS:NEW_ITEMS;
+  const grid    = DATA[CUR];
+  const t=document.getElementById('grid');
+
+  let head='<thead><tr><th style="min-width:230px">檢核項目</th>';
+  members.forEach((m,mi)=>{
+    head+=`<th><div class="mcard">
+      <div class="mname">${m.name}</div>
+      <div class="mind">${m.ind}${m.npc?'｜'+m.npc:''}</div>
+      <div class="mmentor">導師：<b>${m.mentor}</b></div>
+      <div class="light ${lightClass(m.light)}">${lightLabel(m.light)}</div>
+      <div class="prog" id="prog-${mi}"></div>
+      ${m.miss?`<div class="miss">缺：${m.miss}</div>`:''}
+      ${m.note?`<div class="miss" style="color:#9af0bd">▸ ${m.note}</div>`:''}
+    </div></th>`;
+  });
+  head+='</tr></thead>';
+
+  let body='<tbody>';
+  items.forEach((it,ii)=>{
+    body+=`<tr><td class="itemcell"><span class="inum">${ii+1}</span><span class="ititle">${it[0]}</span>`
+        +`<div class="idetail">${it[1]}</div><span class="iwho">負責：${it[2]}</span></td>`;
+    members.forEach((m,mi)=>{
+      const [s,n]=grid[ii][mi];
+      body+=`<td class="cell ${STCLASS[s]}" onclick="cycle(${ii},${mi})">
+        <span class="sicon">${ICON[s]}</span>
+        <span class="note" contenteditable="true"
+          onclick="event.stopPropagation()"
+          onfocus="editing=true" onblur="editing=false"
+          oninput="setNote(${ii},${mi},this.innerText)">${n||''}</span></td>`;
+    });
+    body+='</tr>';
+  });
+  body+='</tbody>';
+
+  let foot='<tfoot><tr><td>完成度</td>';
+  members.forEach((m,mi)=>{ foot+=`<td id="foot-${mi}"></td>`; });
+  foot+='</tr></tfoot>';
+
+  t.innerHTML=head+body+foot;
+  updateTotals();
+}
+
+function cycle(ii,mi){ const c=DATA[CUR][ii][mi]; c[0]=(c[0]+1)%3; save(); render(); }
+function setNote(ii,mi,txt){
+  DATA[CUR][ii][mi][1]=txt.trim();
+  if(txt.trim() && DATA[CUR][ii][mi][0]===0){ DATA[CUR][ii][mi][0]=2; }
+  save(); updateTotals();
+}
+function updateTotals(){
+  const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
+  const grid=DATA[CUR]; const total=grid.length;
+  members.forEach((m,mi)=>{
+    let done=0; grid.forEach(row=>{ if(row[mi][0]===1) done++; });
+    const pct=Math.round(done/total*100);
+    const f=document.getElementById('foot-'+mi); if(f) f.innerHTML=`${done}/${total} ・ ${pct}%`;
+    const p=document.getElementById('prog-'+mi); if(p) p.textContent=`進度 ${done}/${total}（${pct}%）`;
+  });
+}
+function switchVer(v){
+  CUR=v;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
+  render();
+}
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='新會員檢核進度.json'; a.click();
+}
+function importJSON(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.old&&d.new){DATA=d;save();render();alert('已匯入並更新進度');} else alert('檔案格式不符'); }catch(err){alert('讀取失敗');} };
+  r.readAsText(f); e.target.value='';
+}
+function resetAll(){
+  if(confirm('確定要清除所有更新、回到預設帶入狀態嗎?(雲端共用模式會同步清除給所有人)')){ DATA=defaults(); save(); render(); }
+}
+
+render();
+initSync();
+</script>
+</body>
+</html>
