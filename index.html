@@ -436,12 +436,17 @@ async function exportImage(){
   document.body.appendChild(wrap);
   try{
     const canvas=await html2canvas(wrap,{backgroundColor:'#000',scale:2,logging:false,windowWidth:wrap.scrollWidth+60});
-    const a=document.createElement('a');
-    a.href=canvas.toDataURL('image/jpeg',0.95);
-    a.download='BNI檢核追蹤_'+(CUR==='old'?'舊版':'新版')+'_'+fmtT(Date.now()).replace(/[\/: ]/g,'-')+'.jpg';
-    a.click();
+    const fname='BNI檢核追蹤_'+(CUR==='old'?'舊版':'新版')+'_'+fmtT(Date.now()).replace(/[\/: ]/g,'-')+'.jpg';
+    const done=(blob)=>{
+      if(!blob){ alert('產生圖片失敗，請再試一次。'); return; }
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 2000);
+    };
+    if(canvas.toBlob){ canvas.toBlob(done,'image/jpeg',0.95); }
+    else { const b=await (await fetch(canvas.toDataURL('image/jpeg',0.95))).blob(); done(b); }
   }catch(e){ alert('匯出圖片失敗：'+(e&&e.message||e)); }
-  finally{ document.body.removeChild(wrap); }
+  finally{ if(wrap.parentNode) document.body.removeChild(wrap); }
 }
 
 function lightClass(v){ if(v==null) return 'L-gray'; if(v>=70) return 'L-green'; if(v>=50) return 'L-yellow'; return 'L-red'; }
