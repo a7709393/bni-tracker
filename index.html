@@ -157,7 +157,6 @@
 <script>
 /* ====== 資料:對照「新會員出村紀錄」表 + 線上紅綠燈檢視表(2026/06/23) ====== */
 const OLD_MEMBERS = [
-  {name:'郭景翔', npc:'鐵匠舖', ind:'居家水電', mentor:'林永恩', light:70, join:'114.08.07', miss:'引薦 1次、來賓 7位', note:''},
   {name:'邱士傑', npc:'雜貨舖', ind:'玻璃工程', mentor:'徐子棋', light:70, join:'114.07.08', miss:'來賓 6位、成交 65萬', note:'6/4 出村'},
   {name:'陳雨震', npc:'飾品舖', ind:'防水工程', mentor:'林淙仁', light:65, join:'114.11.27', miss:'引薦 11次、來賓 13位、成交 38萬', note:'預計七月出村'},
   {name:'洪倧勝', npc:'', ind:'鋁門窗', mentor:'陳廷澐', light:70, join:'114.12.11', miss:'來賓 8位、成交 80萬', note:'6/11 完成出村'},
@@ -184,20 +183,20 @@ const OLD_ITEMS = [
 function dfltOld(){
   const g=OLD_ITEMS.map(()=>OLD_MEMBERS.map(()=>[1,'']));
   const set=(it,mb,s,n='')=>{g[it][mb]=[s,n];};
-  set(6,3,2,'6/26五');
-  set(7,3,2,'7/7前');
-  set(8,2,2,'一位');  set(8,4,2,'一位');
-  set(11,3,2,'7/15前');
-  set(12,3,2,'7/30前');
-  set(13,3,2,'時間待確認'); set(13,4,2,'7/30前'); set(13,5,0); // 蔡家銘 與董顧121 未開始
-  for(let m=1;m<OLD_MEMBERS.length;m++) set(14,m,0);            // 報名5分鐘簡報 預設未開始
-  set(14,1,1);                                                  // 邱士傑 已完成
+  // 成員索引：邱士傑0 陳雨震1 洪倧勝2 夏振異3 蔡家銘4
+  set(6,2,2,'6/26五');                                          // 洪 第二次導讀
+  set(7,2,2,'7/7前');                                           // 洪 與第二位導師121
+  set(8,1,2,'一位'); set(8,3,2,'一位');                          // 陳/夏 擇二121
+  set(11,2,2,'7/15前');                                         // 洪 網頁版Connect
+  set(12,2,2,'7/30前');                                         // 洪 與導師協調員121
+  set(13,2,2,'時間待確認'); set(13,3,2,'7/30前'); set(13,4,0);   // 洪/夏 與董顧121、蔡未開始
+  for(let m=0;m<OLD_MEMBERS.length;m++) set(14,m,0);            // 報名5分鐘簡報 預設未開始
+  set(14,0,1);                                                  // 邱士傑 已完成
   return g;
 }
 
 const NEW_MEMBERS = [
   {name:'楊有成', npc:'', ind:'商業影像規劃', mentor:'林永恩', light:null, join:'預計6月底', miss:'', note:'下週五完成繳費'},
-  {name:'林士安', npc:'', ind:'企業命理', mentor:'黃奕樺', light:null, join:'115.06.04', miss:'', note:'（最新表未顯示，待確認是否仍在）'},
   {name:'許柏祥', npc:'', ind:'系統櫃', mentor:'陳廷澐', light:30, join:'115.06.04', miss:'引薦 5次、來賓 2位、培訓 6分、成交 80萬', note:'預計一個月出村'},
   {name:'余政學', npc:'', ind:'居家設計', mentor:'張晉銘', light:55, join:'115.06.04', miss:'來賓 1位、培訓 6分、成交 79萬', note:'預計一個月出村'},
 ];
@@ -223,19 +222,19 @@ const NEW_ITEMS = [
 function dfltNew(){
   const g=NEW_ITEMS.map(()=>NEW_MEMBERS.map(()=>[0,'']));
   const set=(it,mb,s,n='')=>{g[it][mb]=[s,n];};
-  // 成員索引：楊有成0 林士安1 許柏祥2 余政學3（林士安最新表未顯示，暫無資料）
-  [0,1,2,3,4].forEach(it=>{ set(it,0,1); set(it,2,1); set(it,3,1); }); // 1~5 基礎項目完成
-  set(5,2,2,'6/30前完成'); set(5,3,1);              // 6 網頁版Connect
-  set(6,0,1); set(6,3,1);                            // 7 綠燈計分
-  set(7,2,1);                                        // 8 第二次導讀及導師121
-  set(8,0,2,'完成一半');                              // 9 與導師協調員121
-  set(12,0,2,'預計七月份'); set(12,2,2,'預計七月份'); set(12,3,2,'已報名6/25MSP'); // 13 MSP
-  set(13,2,2,'7/2預計帶一位');                        // 14 帶來一位來賓
+  // 成員索引：楊有成0 許柏祥1 余政學2
+  [0,1,2,3,4].forEach(it=>{ set(it,0,1); set(it,1,1); set(it,2,1); }); // 1~5 基礎項目完成
+  set(5,1,2,'6/30前完成'); set(5,2,1);              // 6 網頁版Connect: 許進行中/余完成
+  set(6,0,1); set(6,2,1);                            // 7 綠燈計分: 楊/余完成
+  set(7,1,1);                                        // 8 第二次導讀及導師121: 許完成
+  set(8,0,2,'完成一半');                              // 9 與導師協調員121: 楊
+  set(12,0,2,'預計七月份'); set(12,1,2,'預計七月份'); set(12,2,2,'已報名6/25MSP'); // 13 MSP
+  set(13,1,2,'7/2預計帶一位');                        // 14 帶來一位來賓: 許
   return g;
 }
 
 /* ====== 狀態管理 ====== */
-const KEY='bni_new_member_tracker_v2';
+const KEY='bni_new_member_tracker_v3';
 let DATA = load();
 let CUR='old';
 let MODE = (window.innerWidth<768)?'cards':'table';
@@ -272,7 +271,7 @@ function initSync(){
   if(!cfg || !window.firebase){ setMode('m-local','● 本機模式'); return; }
   try{
     firebase.initializeApp(cfg);
-    dbRef = firebase.database().ref('tracker_v2');
+    dbRef = firebase.database().ref('tracker_v3');
     SHARED=true; setMode('m-warn','☁ 連線中…');
     dbRef.on('value', snap=>{
       const v=snap.val();
