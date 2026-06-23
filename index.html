@@ -446,7 +446,7 @@ async function exportImage(){
     };
     if(canvas.toBlob){ canvas.toBlob(done,'image/jpeg',0.95); }
     else { const b=await (await fetch(canvas.toDataURL('image/jpeg',0.95))).blob(); done(b); }
-  }catch(e){ alert('匯出圖片失敗：'+(e&&e.message||e)); }
+  }catch(e){ if(location.search.indexOf('preview=1')>=0){ document.getElementById('view').innerHTML='<pre style="color:#ff8a8a;white-space:pre-wrap;padding:16px;font-size:12px">匯出錯誤：\n'+((e&&(e.stack||e.message))||e)+'</pre>'; } else { alert('匯出圖片失敗：'+(e&&e.message||e)); } }
   finally{ if(wrap.parentNode) document.body.removeChild(wrap); }
 }
 
