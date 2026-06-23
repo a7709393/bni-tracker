@@ -229,6 +229,7 @@
   <span><span class="dot" style="background:var(--green)"></span>綠燈 ≥70</span>
   <span><span class="dot" style="background:var(--yellow)"></span>黃燈 50–69</span>
   <span><span class="dot" style="background:var(--red)"></span>紅燈 &lt;50</span>
+  <span id="refstamp" style="color:#7fc4ff"></span>
 </div>
 <div class="hint">操作:點格子循環切換 <b>未開始 → 完成 → 進行中</b>;「＋備註」可直接打字填日期(如 6/26、7/30前)。<b>雲端共用模式</b>下所有導師看到並更新同一份即時資料。燈號分數已對照線上紅綠燈檢視表帶入。</div>
 
@@ -364,6 +365,7 @@ function initSync(){
     dbRef = firebase.database().ref('tracker_v5');
     logRef = firebase.database().ref('logs_v1');
     logRef.limitToLast(500).on('value', s=>{ const v=s.val()||{}; LOG=Object.values(v).sort((a,b)=>b.t-a.t); if(logOpen) renderLog(); });
+    firebase.database().ref('refdata').on('value', s=>{ const rd=s.val(); if(rd) applyRefdata(rd); });
     SHARED=true; setMode('m-warn','☁ 連線中…');
     dbRef.on('value', snap=>{
       const v=snap.val();
@@ -474,6 +476,29 @@ function lightClass(v){ if(v==null) return 'L-gray'; if(v>=70) return 'L-green';
 function lightLabel(v){ if(v==null) return '未評燈'; const n=v>=70?'綠燈':v>=50?'黃燈':'紅燈'; return n+' '+v; }
 const ICON={0:'○',1:'✔︎',2:'⧗'};
 const STCLASS={0:'st-empty',1:'st-done',2:'st-pending'};
+
+/* ====== 紅綠燈檢視表數據連動（依姓名套用燈號 + 引薦/來賓/成交） ====== */
+let REFMETA=null;
+function missFromRef(r){
+  const p=[];
+  if(r.ref>0) p.push('引薦 '+r.ref+'次');
+  if(r.o2o>0) p.push('一對一 '+r.o2o+'次');
+  if(r.guest>0) p.push('來賓 '+r.guest+'位');
+  if(r.train>0) p.push('培訓 '+r.train+'分');
+  if(r.biz>0) p.push('成交 '+Math.round(r.biz/10000)+'萬');
+  return p.join('、');
+}
+function applyRefdata(rd){
+  if(!rd||!rd.members) return;
+  REFMETA=rd.meta||null;
+  [OLD_MEMBERS,NEW_MEMBERS].forEach(arr=>arr.forEach(m=>{
+    const r=rd.members[m.name];
+    if(r){ if(typeof r.light==='number') m.light=r.light; m.miss=missFromRef(r); }
+  }));
+  if(!editing) render();
+  updateRefStamp();
+}
+function updateRefStamp(){ const el=document.getElementById('refstamp'); if(el&&REFMETA){ el.textContent='｜ 數據來源：紅綠燈檢視表 · 更新 '+(REFMETA.updatedAt||''); } }
 
 function render(){
   const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
